@@ -1,6 +1,6 @@
 # MLA Fall 2025 - Hanoi University
 # Academic Integrity Declaration:
-# I, [Student Name] ([Student ID]), declare that this code is my own original work.
+# I, Dam Thanh Thuy (2201040173), declare that this code is my own original work.
 # I have not copied or adapted code from any external repositories or previous years.
 # Any sources or libraries used are explicitly cited below.
 
@@ -50,10 +50,6 @@ def svd_reconstruct_hanu(matrix, k):
     return recon
 
 def squared_error_loss(data, u, z, lambda_=0.0):
-    """
-    Compute squared-error loss WITH L2 regularization given the data.
-    Returns: float (total loss)
-    """
     # Loss = (1/2) sum_{(n,m) in observed} (c_nm - u_n^T z_m)^2 + (lambda_/2)(||U||^2 + ||Z||^2)
     users = data["user_id"]
     questions = data["question_id"]
@@ -72,13 +68,6 @@ def squared_error_loss(data, u, z, lambda_=0.0):
     return total + reg
 
 def update_u_z(train_data, lr, u, z, lambda_=0.0):
-    """
-    Perform a SGD update with L2 regularization.
-    TODO:
-    - Randomly pick an observed (user, question) pair.
-    - Compute gradients including L2 terms and update u, z.
-    Returns: updated u, z
-    """
     # Sample a single observed (user, question)
     N = len(train_data["is_correct"])
     idx = np.random.randint(0, N)
@@ -102,16 +91,6 @@ def update_u_z(train_data, lr, u, z, lambda_=0.0):
     return u, z
 
 def als(train_data, valid_data, k, lr, num_iteration, lambda_=0.01, student_id=""):
-    """
-    ALS with SGD and L2 regularization.
-    TODO:
-    - Initialize u, z.
-    - For each iteration:
-        * Call update_u_z (enough times to touch all observed entries).
-        * Track and plot both training loss and validation accuracy (use valid_data).
-    - Save results using student_id.
-    Returns: predicted matrix (u @ z.T)
-    """
     num_users = max(train_data["user_id"]) + 1
     num_questions = max(train_data["question_id"]) + 1
 
@@ -122,9 +101,7 @@ def als(train_data, valid_data, k, lr, num_iteration, lambda_=0.01, student_id="
     losses = []
     val_accs = []
 
-    # Steps per epoch: number of observed entries
     steps_per_epoch = len(train_data["is_correct"])
-
     for it in range(num_iteration):
         for _ in range(steps_per_epoch):
             u, z = update_u_z(train_data, lr, u, z, lambda_)
@@ -139,7 +116,6 @@ def als(train_data, valid_data, k, lr, num_iteration, lambda_=0.01, student_id="
         val_accs.append(val_acc)
         print(f"[ALS] iter={it+1}/{num_iteration} loss={loss:.4f} val_acc={val_acc:.4f}")
 
-    # Plot training loss and validation accuracy
     fig, ax1 = plt.subplots(figsize=(7,4))
     ax1.plot(range(1, num_iteration+1), losses, label="train loss", color="tab:blue")
     ax1.set_xlabel("epoch")
@@ -166,7 +142,6 @@ def main():
     #####################################################################
     # SVD: Experiment with at least 5 k, report val accuracy, select best
     #####################################################################
-    # SVD experiments
     svd_ks = [10, 50, 100, 200, 500]
     svd_val_scores = {}
     svd_test_scores = {}
@@ -175,21 +150,18 @@ def main():
         val_acc = sparse_matrix_evaluate(val_data, recon)
         test_acc = sparse_matrix_evaluate(test_data, recon)
         svd_val_scores[k] = val_acc
-        svd_test_scores[k] = test_acc
+        svd_test_scores[k] = test_acc 
         print(f"[SVD] k={k} val_acc={val_acc:.4f} test_acc={test_acc:.4f}")
 
     best_k_svd = max(svd_val_scores, key=svd_val_scores.get)
     print(f"[SVD] best_k={best_k_svd} best_val_acc={svd_val_scores[best_k_svd]:.4f}")
 
-    #####################################################################
-    # ALS: Experiment with at least 5 k, report val accuracy, select best
-    #####################################################################
     # ALS experiments
     als_ks = [10, 50, 100, 200, 500]
     als_val_scores = {}
     als_test_scores = {}
-    student_id = "studentID"
-    # Reasonable defaults (students should further tune)
+    student_id = "2201040173"
+
     base_lr = 0.01
     base_lambda = 0.01
     epochs = 15
@@ -217,7 +189,7 @@ def main():
     #####################################################################
 
     print(f"Summary: SVD best_k={best_k_svd} val={svd_val_scores[best_k_svd]:.4f}; "
-          f"ALS best_k={best_k_als} val={als_val_scores[best_k_als]:.4f}. Plots saved as mf_results_{'studentID'}.png.")
+          f"ALS best_k={best_k_als} val={als_val_scores[best_k_als]:.4f}. Plots saved as mf_results_{'2201040173'}.png.")
 
 if __name__ == "__main__":
     main()
