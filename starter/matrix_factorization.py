@@ -16,13 +16,7 @@ from utils import (
 )
 
 def svd_reconstruct_hanu(matrix, k):
-    """
-    Given the matrix, perform SVD to reconstruct the matrix using the top k components.
-    - Fill missing values (e.g., with column mean).
-    - Center the matrix.
-    - Perform SVD and reconstruct using k components.
-    Returns: reconstructed matrix (n_users x n_questions).
-    """
+
     # Copy to avoid in-place modification
     mat = matrix.astype(float).copy()
 
@@ -54,9 +48,11 @@ def squared_error_loss(data, u, z, lambda_=0.0):
     users = data["user_id"]
     questions = data["question_id"]
     correct = data["is_correct"]
-
+    
+    N = len(correct)
     total = 0.0
-    for i in range(len(correct)):
+    
+    for i in range(N):
         n = users[i]
         m = questions[i]
         c_nm = float(correct[i])
@@ -64,13 +60,13 @@ def squared_error_loss(data, u, z, lambda_=0.0):
         diff = c_nm - pred
         total += 0.5 * (diff * diff)
 
+    data_loss = total / N
     reg = 0.5 * lambda_ * (np.sum(u * u) + np.sum(z * z))
-    return total + reg
+    
+    return data_loss + reg
 
-def update_u_z(train_data, lr, u, z, lambda_=0.0):
-    # Sample a single observed (user, question)
-    N = len(train_data["is_correct"])
-    idx = np.random.randint(0, N)
+def update_u_z(train_data, idx, lr, u, z, lambda_=0.0):
+
     n = train_data["user_id"][idx]
     m = train_data["question_id"][idx]
     c_nm = float(train_data["is_correct"][idx])
@@ -81,7 +77,7 @@ def update_u_z(train_data, lr, u, z, lambda_=0.0):
     pred = float(u_n @ z_m)
     diff = pred - c_nm
 
-    # Gradients with L2
+    # Gradients with L2 regularization
     grad_u = diff * z_m + lambda_ * u_n
     grad_z = diff * u_n + lambda_ * z_m
 
@@ -91,6 +87,7 @@ def update_u_z(train_data, lr, u, z, lambda_=0.0):
     return u, z
 
 def als(train_data, valid_data, k, lr, num_iteration, lambda_=0.01, student_id=""):
+
     num_users = max(train_data["user_id"]) + 1
     num_questions = max(train_data["question_id"]) + 1
 
@@ -101,10 +98,16 @@ def als(train_data, valid_data, k, lr, num_iteration, lambda_=0.01, student_id="
     losses = []
     val_accs = []
 
-    steps_per_epoch = len(train_data["is_correct"])
+    N = len(train_data["is_correct"])
+    
     for it in range(num_iteration):
-        for _ in range(steps_per_epoch):
-            u, z = update_u_z(train_data, lr, u, z, lambda_)
+        # FIXED: Shuffle indices at the start of each epoch
+        # This ensures each observation is seen exactly once per epoch
+        indices = np.random.permutation(N)
+        
+        # Update using shuffled indices
+        for idx in indices:
+            u, z = update_u_z(train_data, idx, lr, u, z, lambda_)
 
         # Compute metrics
         loss = squared_error_loss(train_data, u, z, lambda_)
