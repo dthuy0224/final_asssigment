@@ -277,13 +277,23 @@ def main():
     
     # Right: Performance comparison
     methods = ['SVD', 'ALS']
+    val_accs_plot = [svd_best_val, als_best_val]
+    test_accs_plot = [svd_best_test, als_best_test]
     x = np.arange(len(methods))
     width = 0.35
     
-    ax2.bar(x - width/2, [svd_best_val, als_best_val], width, label='Val Acc', 
+    bars1 = ax2.bar(x - width/2, val_accs_plot, width, label='Val Acc', 
             color='#3498db', alpha=0.8)
-    ax2.bar(x + width/2, [svd_best_test, als_best_test], width, label='Test Acc', 
+    bars2 = ax2.bar(x + width/2, test_accs_plot, width, label='Test Acc', 
             color='#e74c3c', alpha=0.8)
+    
+    # Add value labels on bars
+    for bars in [bars1, bars2]:
+        for bar in bars:
+            height = bar.get_height()
+            ax2.text(bar.get_x() + bar.get_width()/2., height,
+                    f'{height:.4f}',
+                    ha='center', va='bottom', fontsize=9)
     
     ax2.set_xlabel('Method', fontsize=11)
     ax2.set_ylabel('Accuracy', fontsize=11)
@@ -291,6 +301,8 @@ def main():
     ax2.set_xticklabels(methods)
     ax2.legend()
     ax2.grid(True, alpha=0.3, axis='y')
+    ax2.set_ylim([min(min(val_accs_plot), min(test_accs_plot)) - 0.02, 
+                  max(max(val_accs_plot), max(test_accs_plot)) + 0.02])
     
     plt.tight_layout()
     comparison_plot_name = f"mf_comparison_{student_id}.png"
