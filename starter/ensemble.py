@@ -1,6 +1,6 @@
 # MLA Fall 2025 - Hanoi University
 # Academic Integrity Declaration:
-# I, [Student Name] ([Student ID]), declare that this code is my own original work.
+# I, 2201040173 (Dam Thanh Thuy), declare that this code is my own original work.
 # I have not copied or adapted code from any external repositories or previous years.
 # Any sources or libraries used are explicitly cited below.
 
@@ -99,28 +99,45 @@ def train_knn_model(train_matrix, val_data, k=21):
 
 def train_mf_model(train_data, val_data, k=50, lr=0.01, iterations=10, lambda_=0.01):
     """
-    Train a Matrix Factorization model using ALS.
+    Train a Matrix Factorization model using ALS (Alternating Least Squares).
+    
+    This function wraps the ALS implementation from matrix_factorization.py
+    and adapts it for use in ensemble methods.
     
     Args:
-        train_data: training data dict
-        val_data: validation data dict
-        k: latent dimension
-        lr: learning rate
-        iterations: number of iterations
-        lambda_: regularization parameter
+        train_data: training data dict with keys 'user_id', 'question_id', 'is_correct'
+        val_data: validation data dict with same structure
+        k: latent dimension (number of latent factors)
+        lr: learning rate for gradient descent
+        iterations: number of training epochs
+        lambda_: L2 regularization parameter
     
     Returns:
-        pred_matrix: prediction matrix (users x questions)
+        pred_matrix: prediction matrix (users x questions) with values in [0, 1]
     """
-    print(f"  Training Matrix Factorization model (k={k}, iter={iterations})...")
+    print(f"  Training Matrix Factorization model (k={k}, lr={lr}, lambda={lambda_}, iter={iterations})...")
     
-    # ALS returns the prediction matrix directly
-    pred_matrix = als(train_data, val_data, k=k, lr=lr, 
-                     num_iteration=iterations, lambda_=lambda_, student_id="")
+    # ALS function returns tuple: (pred_matrix, losses, val_accs)
+    # We only need the prediction matrix for ensemble, so we unpack and ignore losses/val_accs
+    # plot=False to avoid generating plots during ensemble training
+    pred_matrix, _, _ = als(
+        train_data=train_data, 
+        valid_data=val_data, 
+        k=k, 
+        lr=lr, 
+        num_iteration=iterations, 
+        lambda_=lambda_, 
+        student_id="",  # Empty string since we don't need to save plots
+        plot=False  # Disable plotting for ensemble training
+    )
+    
+    # Ensure predictions are in valid probability range [0, 1]
     pred_matrix = np.clip(pred_matrix, 0.0, 1.0)
     
+    # Evaluate on validation set
     val_acc = sparse_matrix_evaluate(val_data, pred_matrix)
     print(f"    -> MF validation accuracy: {val_acc:.4f}")
+    
     return pred_matrix
 
 
