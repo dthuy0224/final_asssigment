@@ -4,6 +4,9 @@
 # I have not copied or adapted code from any external repositories or previous years.
 # Any sources or libraries used are explicitly cited below.
 
+import json
+from pathlib import Path
+
 import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.impute import KNNImputer
@@ -21,6 +24,54 @@ from utils import (
 from item_response import irt, evaluate as irt_evaluate
 from matrix_factorization import als
 from knn import item_knn_predict_hanu
+
+
+MF_CONFIG_PATH = Path(__file__).resolve().parent / "mf_best_config.json"
+DEFAULT_MF_CONFIG = {
+    "k": 50,
+    "lr": 0.01,
+    "lambda_": 0.01,
+    "iterations": 10,
+}
+
+
+def load_best_mf_config(path: Path = MF_CONFIG_PATH):
+    """Load best MF hyperparameters saved by matrix_factorization.py."""
+    if path.exists():
+        try:
+            with path.open("r", encoding="utf-8") as f:
+                payload = json.load(f)
+            cfg = payload.get("best_config", {})
+            required_keys = {"k", "lr", "lambda", "epochs"}
+            if required_keys.issubset(cfg.keys()):
+                loaded = {
+                    "k": int(cfg["k"]),
+                    "lr": float(cfg["lr"]),
+                    "lambda_": float(cfg["lambda"]),
+                    "iterations": int(cfg["epochs"]),
+                }
+                print(
+                    "[OK] Loaded MF hyperparameters from "
+                    f"{path.name}: k={loaded['k']}, lr={loaded['lr']}, "
+                    f"lambda={loaded['lambda_']}, epochs={loaded['iterations']}"
+                )
+                return loaded
+            else:
+                print(
+                    "[WARN] mf_best_config.json missing required keys. "
+                    "Falling back to default MF config."
+                )
+        except (OSError, ValueError, json.JSONDecodeError) as err:
+            print(
+                f"[WARN] Could not parse {path.name} ({err}). "
+                "Falling back to default MF config."
+            )
+    else:
+        print(
+            "[WARN] mf_best_config.json not found. "
+            "Run matrix_factorization.py first to generate it."
+        )
+    return DEFAULT_MF_CONFIG.copy()
 
 
 def create_bootstrap_sample(data, seed=None):
@@ -71,6 +122,33 @@ def train_irt_model(train_data, val_data, lr=0.01, iterations=25):
     print(f"    -> IRT validation accuracy: {val_acc:.4f}")
     return theta, beta
 
+
+def create_bootstrap_matrix(train_data, train_matrix, seed=None):
+    """
+    Create a bootstrap matrix from bootstrap data.
+    
+    Args:
+        train_data: original training data dict
+        train_matrix: original training matrix
+        seed: random seed for bootstrap sampling
+    
+    Returns:
+        bootstrap_matrix: matrix created from bootstrap sample
+    """
+    bootstrap_data = create_bootstrap_sample(train_data, seed=seed)
+    
+    # Create matrix from bootstrap data
+    num_users = max(train_data["user_id"]) + 1
+    num_questions = max(train_data["question_id"]) + 1
+    bootstrap_matrix = np.full((num_users, num_questions), np.nan)
+    
+    for i in range(len(bootstrap_data["user_id"])):
+        u = bootstrap_data["user_id"][i]
+        q = bootstrap_data["question_id"][i]
+        c = bootstrap_data["is_correct"][i]
+        bootstrap_matrix[u, q] = float(c)
+    
+    return bootstrap_matrix
 
 def train_knn_model(train_matrix, val_data, k=21):
     """
@@ -221,11 +299,13 @@ def bagging_ensemble(train_data, train_matrix, val_data, test_data,
     test_predictions_list = []
     individual_val_accs = []
     
+    mf_params = load_best_mf_config()
+
     # Strategy: Use 3 different model types with bootstrap samples
     model_configs = [
         {"type": "irt", "params": {"lr": 0.01, "iterations": 25}},
         {"type": "knn", "params": {"k": 21}},
-        {"type": "mf", "params": {"k": 50, "lr": 0.01, "iterations": 10, "lambda_": 0.01}},
+        {"type": "mf", "params": mf_params},
     ]
     
     for i in range(n_models):
@@ -256,10 +336,9 @@ def bagging_ensemble(train_data, train_matrix, val_data, test_data,
             test_preds = get_irt_predictions(theta, beta, test_data)
             
         elif model_type == "knn":
-            # For KNN, we need to create a bootstrap matrix
-            # This is more complex, so we'll use the original matrix
-            # but it's trained on different hyperparameters
-            filled_matrix = train_knn_model(train_matrix, val_data, **params)
+            # Create bootstrap matrix from bootstrap data
+            bootstrap_matrix = create_bootstrap_matrix(train_data, train_matrix, seed=seed)
+            filled_matrix = train_knn_model(bootstrap_matrix, val_data, **params)
             
             val_preds = get_predictions_from_matrix(filled_matrix, val_data)
             test_preds = get_predictions_from_matrix(filled_matrix, test_data)
