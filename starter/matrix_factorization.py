@@ -4,6 +4,9 @@
 # I have not copied or adapted code from any external repositories or previous years.
 # Any sources or libraries used are explicitly cited below.
 
+import json
+from datetime import datetime
+
 import numpy as np
 import matplotlib.pyplot as plt
 from utils import (
@@ -228,6 +231,33 @@ def main():
         plot=True
     )
     
+    # Persist best configuration for reuse by other modules (e.g., ensemble.py)
+    best_config_payload = {
+        "student_id": student_id,
+        "generated_at": datetime.now().isoformat(timespec="seconds"),
+        "best_config": {
+            "k": best_k_overall,
+            "lr": best_overall_config[0],
+            "lambda": best_overall_config[1],
+            "epochs": best_overall_config[2],
+            "val_acc": best_overall_config[3],
+            "test_acc": best_overall_config[4],
+        },
+        "best_by_k": {
+            str(k): {
+                "lr": cfg[0],
+                "lambda": cfg[1],
+                "epochs": cfg[2],
+                "val_acc": cfg[3],
+                "test_acc": cfg[4],
+            }
+            for k, cfg in best_configs.items()
+        },
+    }
+    with open("mf_best_config.json", "w", encoding="utf-8") as f:
+        json.dump(best_config_payload, f, indent=2)
+    print("\n[Saved best ALS config -> mf_best_config.json]")
+
     # Summary table
     print("\n" + "="*80)
     print("HYPERPARAMETER TUNING SUMMARY")
